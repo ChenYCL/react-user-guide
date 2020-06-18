@@ -1,10 +1,10 @@
-import React, { Component, Fragment } from 'react';
-import debounce from 'lodash.debounce';
-import PropTypes from 'prop-types';
-import styles from './styles.scss';
+import React, { Component, Fragment } from "react";
+import debounce from "lodash.debounce";
+import PropTypes from "prop-types";
+import styles from "./styles.scss";
 
 const win = window;
-const createElement = (type, className = '', html = '') => {
+const createElement = (type, className = "", html = "") => {
   const newDiv = document.createElement(type);
 
   newDiv.className = className;
@@ -12,7 +12,7 @@ const createElement = (type, className = '', html = '') => {
 
   return newDiv;
 };
-const removeElement = element => {
+const removeElement = (element) => {
   if (element && element.parentNode) {
     element.parentNode.removeChild(element);
   }
@@ -20,7 +20,7 @@ const removeElement = element => {
 const applyStyle = (el, style = {}) => {
   const dom = el;
 
-  Object.keys(style).forEach(key => {
+  Object.keys(style).forEach((key) => {
     dom.style[key] = style[key];
   });
 
@@ -28,11 +28,11 @@ const applyStyle = (el, style = {}) => {
 };
 
 const defaultButtonConfig = {
-  yesText: 'Yes',
-  noText: 'No',
-  nextText: 'Next',
-  skipText: 'Skip',
-  finishText: 'Finish'
+  yesText: "Yes",
+  noText: "No",
+  nextText: "Next",
+  skipText: "Skip",
+  finishText: "Finish",
 };
 
 class HelpText extends Component {
@@ -48,29 +48,36 @@ class HelpText extends Component {
     onNext: PropTypes.func,
     onSkip: PropTypes.func,
     isLast: PropTypes.bool.isRequired,
+    skipFunc:PropTypes.func, //  use it when finish
+    nextFunc:PropTypes.func,
     children: PropTypes.oneOfType([
       PropTypes.array,
       PropTypes.element,
       PropTypes.string,
     ]),
-  }
+  };
 
   static defaultProps = {
     tooltipWidth: 240,
-    position: 'north',
-    isLast: false
-  }
+    position: "north",
+    isLast: false,
+    skipFunc:() => null,
+    nextFunc:() => null
+  };
 
   constructor(props) {
     super(props);
 
-    this.debouncedApplyStyleToCurrentNode = debounce(this.applyStyleToCurrentNode.bind(this), 10);
-    this.mask = createElement('div', `userGuide--mask ${styles.userGuideMask}`);
+    this.debouncedApplyStyleToCurrentNode = debounce(
+      this.applyStyleToCurrentNode.bind(this),
+      10
+    );
+    this.mask = createElement("div", `userGuide--mask ${styles.userGuideMask}`);
   }
 
   componentDidMount() {
     this.showHelp();
-    win.addEventListener('resize', this.debouncedApplyStyleToCurrentNode);
+    win.addEventListener("resize", this.debouncedApplyStyleToCurrentNode);
   }
 
   componentDidUpdate() {
@@ -83,7 +90,7 @@ class HelpText extends Component {
   }
 
   removeResizeListener() {
-    win.removeEventListener('resize', this.debouncedApplyStyleToCurrentNode);
+    win.removeEventListener("resize", this.debouncedApplyStyleToCurrentNode);
   }
 
   getNode() {
@@ -98,22 +105,40 @@ class HelpText extends Component {
       nextText,
       skipText,
       finishText,
+      skipFunc,
+      nextFunc
     } = this.props;
 
-    const node = createElement('span', `userGuide--message ${styles.userGuideMessage} ${styles[`userGuideMessage${position}`]}`, '');
-    const titleEl = createElement('h3', styles.userGuideMessageTitle, title);
-    const messageEl = createElement('p', styles.userGuideMessageBody, message);
-    const nextButton = createElement('button', isLast ? 'finish' : 'next', isLast ? finishText : nextText);
+    const node = createElement(
+      "span",
+      `userGuide--message ${styles.userGuideMessage} ${
+        styles[`userGuideMessage${position}`]
+      }`,
+      ""
+    );
+    const titleEl = createElement("h3", styles.userGuideMessageTitle, title);
+    const messageEl = createElement("p", styles.userGuideMessageBody, message);
+    const nextButton = createElement(
+      "button",
+      isLast ? "finish" : "next",
+      isLast ? finishText : nextText
+    );
 
-    nextButton.addEventListener('click', onNext);
+    nextButton.addEventListener("click", async ()=>{
+      await nextFunc();
+      onNext();
+    });
 
     node.appendChild(titleEl);
     node.appendChild(messageEl);
 
     if (!isLast) {
-      const skipButton = createElement('button', 'skip', skipText);
+      const skipButton = createElement("button", "skip", skipText);
 
-      skipButton.addEventListener('click', onSkip);
+      skipButton.addEventListener("click", async ()=>{
+        await onSkip();
+        skipFunc();
+      });
       node.appendChild(skipButton);
     }
     node.appendChild(nextButton);
@@ -125,9 +150,7 @@ class HelpText extends Component {
 
   applyStyleToCurrentNode() {
     if (this.helpNeededDOM && this.node) {
-      const {
-        position,
-      } = this.props;
+      const { position } = this.props;
 
       const {
         top: helpNeededElTop,
@@ -137,37 +160,48 @@ class HelpText extends Component {
       } = this.helpNeededDOM.dom.getBoundingClientRect();
 
       // Add style.top after append, so we can get height of the node
-      const { height: nodeHeight, width: nodeWidth } = this.node.getBoundingClientRect();
+      const {
+        height: nodeHeight,
+        width: nodeWidth,
+      } = this.node.getBoundingClientRect();
       const nodeMargin = 10;
 
       switch (position) {
-      case 'east':
-        this.node = applyStyle(this.node, {
-          left: `${nodeMargin + helpNeededElLeft + helpNeededElWidth}px`,
-          top: `${helpNeededElTop + (helpNeededElHeight / 2 - nodeHeight / 2)}px`,
-        });
-        break;
-      case 'west':
-        this.node = applyStyle(this.node, {
-          left: `${helpNeededElLeft - nodeWidth - nodeMargin}px`,
-          top: `${helpNeededElTop + (helpNeededElHeight / 2 - nodeHeight / 2)}px`,
-        });
-        break;
-      case 'north':
-        this.node = applyStyle(this.node, {
-          left: `${helpNeededElLeft + (helpNeededElWidth / 2 - nodeWidth / 2)}px`,
-          top: `${helpNeededElTop - nodeHeight - nodeMargin}px`,
-        });
-        break;
-      case 'south':
-        this.node = applyStyle(this.node, {
-          left: `${helpNeededElLeft + (helpNeededElWidth / 2 - nodeWidth / 2)}px`,
-          top: `${helpNeededElTop + helpNeededElHeight + nodeMargin}px`,
-        });
-        break;
+        case "east":
+          this.node = applyStyle(this.node, {
+            left: `${nodeMargin + helpNeededElLeft + helpNeededElWidth}px`,
+            top: `${
+              helpNeededElTop + (helpNeededElHeight / 2 - nodeHeight / 2)
+            }px`,
+          });
+          break;
+        case "west":
+          this.node = applyStyle(this.node, {
+            left: `${helpNeededElLeft - nodeWidth - nodeMargin}px`,
+            top: `${
+              helpNeededElTop + (helpNeededElHeight / 2 - nodeHeight / 2)
+            }px`,
+          });
+          break;
+        case "north":
+          this.node = applyStyle(this.node, {
+            left: `${
+              helpNeededElLeft + (helpNeededElWidth / 2 - nodeWidth / 2)
+            }px`,
+            top: `${helpNeededElTop - nodeHeight - nodeMargin}px`,
+          });
+          break;
+        case "south":
+          this.node = applyStyle(this.node, {
+            left: `${
+              helpNeededElLeft + (helpNeededElWidth / 2 - nodeWidth / 2)
+            }px`,
+            top: `${helpNeededElTop + helpNeededElHeight + nodeMargin}px`,
+          });
+          break;
 
-      default:
-        break;
+        default:
+          break;
       }
     }
   }
@@ -190,14 +224,14 @@ class HelpText extends Component {
         this.helpNeededDOM = {
           dom: helpNeededDOM,
           position: helpNeededDOM.style.position,
-          zIndex: helpNeededDOM.style.zIndex
+          zIndex: helpNeededDOM.style.zIndex,
         };
 
         // Bring it to view if needed
         helpNeededDOM.scrollIntoView();
 
         // Bring it above the mask so it is not behind transparent background
-        helpNeededDOM.style.position = 'relative';
+        helpNeededDOM.style.position = "relative";
         helpNeededDOM.style.zIndex = 1234;
 
         removeElement(this.node);
@@ -224,7 +258,7 @@ class HelpText extends Component {
   render() {
     const { children } = this.props;
 
-    return children || '';
+    return children || "";
   }
 }
 
@@ -246,25 +280,28 @@ class UserGuide extends Component {
       PropTypes.element,
       PropTypes.string,
     ]),
-  }
+  };
 
   static defaultProps = {
-    guideKey: 'guideKey',
+    guideKey: "guideKey",
     guides: [],
-    title: 'Quick Guide',
-    content: 'Would you like us to walk you through different features in this app?',
-    buttonConfig: defaultButtonConfig
-  }
+    title: "Quick Guide",
+    content:
+      "Would you like us to walk you through different features in this app?",
+    buttonConfig: defaultButtonConfig,
+  };
 
   constructor(props) {
     super(props);
 
     this.state = {
       helpIndex: 0,
-      acceptedConfirm: false
+      acceptedConfirm: false,
     };
 
-    this.userGuideDisabledFromBegenning = !!win.localStorage.getItem(`userGuide-${props.guideKey}`);
+    this.userGuideDisabledFromBegenning = !!win.localStorage.getItem(
+      `userGuide-${props.guideKey}`
+    );
 
     this.onSkip = this.onSkip.bind(this);
     this.onNext = this.onNext.bind(this);
@@ -277,7 +314,7 @@ class UserGuide extends Component {
     win.localStorage.setItem(`userGuide-${guideKey}`, true);
 
     this.setState({
-      helpIndex: guides.length
+      helpIndex: guides.length,
     });
   }
 
@@ -289,74 +326,87 @@ class UserGuide extends Component {
       this.onSkip();
     } else {
       this.setState({
-        helpIndex: newHelpIndex
+        helpIndex: newHelpIndex,
       });
     }
   }
 
   getYesText() {
-    const { props: { buttonConfig: { yesText } } } = this;
+    const {
+      props: {
+        buttonConfig: { yesText },
+      },
+    } = this;
 
     return yesText || defaultButtonConfig.yesText;
   }
 
   getNoText() {
-    const { props: { buttonConfig: { noText } } } = this;
+    const {
+      props: {
+        buttonConfig: { noText },
+      },
+    } = this;
 
     return noText || defaultButtonConfig.noText;
   }
 
   getNextText() {
-    const { props: { buttonConfig: { nextText } } } = this;
+    const {
+      props: {
+        buttonConfig: { nextText },
+      },
+    } = this;
 
     return nextText || defaultButtonConfig.nextText;
   }
 
   getSkipText() {
-    const { props: { buttonConfig: { skipText } } } = this;
+    const {
+      props: {
+        buttonConfig: { skipText },
+      },
+    } = this;
 
     return skipText || defaultButtonConfig.skipText;
   }
 
   getFinishText() {
-    const { props: { buttonConfig: { finishText } } } = this;
+    const {
+      props: {
+        buttonConfig: { finishText },
+      },
+    } = this;
 
     return finishText || defaultButtonConfig.finishText;
   }
 
   acceptConfirm() {
     this.setState({
-      acceptedConfirm: true
+      acceptedConfirm: true,
     });
   }
 
   render() {
-    const {
-      children,
-      guides,
-      title,
-      content,
-    } = this.props;
+    const { children, guides, title, content } = this.props;
     const { helpIndex, acceptedConfirm } = this.state;
     const helpConfig = guides[helpIndex] || {};
-    const isLast = helpIndex === (guides.length - 1);
+    const isLast = helpIndex === guides.length - 1;
 
     if (this.userGuideDisabledFromBegenning) {
-      return children || '';
+      return children || "";
     }
 
     if (helpIndex === 0 && !acceptedConfirm) {
       return (
         <Fragment>
-          {children || ''}
+          {children || ""}
           <div className={`userGuide--modal ${styles.userGuideModal}`}>
             <div className={styles.userGuideModalContent}>
               <h1 className={styles.userGuideModalHeader}>{title}</h1>
               <p>{content}</p>
               <div>
-                <button onClick={this.onSkip}>
-                  {this.getNoText()}
-                </button>
+                <button onClick={this.onSkip}>{this.getNoText()}</button>
                 <button onClick={this.acceptConfirm}>
                   {this.getYesText()}
                 </button>
@@ -368,12 +418,19 @@ class UserGuide extends Component {
     }
 
     return (
-      <HelpText {...helpConfig} nextText={this.getNextText()} skipText={this.getSkipText()} finishText={this.getFinishText()} onNext={this.onNext} onSkip={this.onSkip} isLast={isLast}>
-        {children || ''}
+      <HelpText
+        {...helpConfig}
+        nextText={this.getNextText()}
+        skipText={this.getSkipText()}
+        finishText={this.getFinishText()}
+        onNext={this.onNext}
+        onSkip={this.onSkip}
+        isLast={isLast}
+      >
+        {children || ""}
       </HelpText>
     );
   }
 }
 
 export default UserGuide;
-
